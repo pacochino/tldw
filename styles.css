@@ -1,0 +1,966 @@
+/* TLDW - Styles */
+
+/* ====================================
+   STACKED LOGO (tL / Dw square)
+   ==================================== */
+
+.tldw-logo {
+  display: inline-grid;
+  grid-template-rows: 1fr 1fr;
+  font-family: "Sixtyfour", "Roboto", monospace;
+  font-weight: normal;
+  line-height: 1;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.tldw-logo-row {
+  display: block;
+  letter-spacing: 0.5px;
+}
+
+/* Size variants — stacked (pills only) */
+.tldw-logo--setup {
+  font-size: 10px;
+  gap: 2px;
+  color: #64b4ff;
+}
+
+.tldw-logo--idle {
+  font-size: 10px;
+  gap: 2px;
+  color: #ff5f57;
+}
+
+.tldw-logo--minimized {
+  font-size: 10px;
+  gap: 2px;
+  color: #febc2e;
+}
+
+/* --- Horizontal Logo (header, buttons) --- */
+.tldw-logo-h {
+  font-family: "Sixtyfour", "Roboto", monospace;
+  font-weight: normal;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tldw-logo-h--btn {
+  font-size: 7px;
+  letter-spacing: 0;
+}
+
+.tldw-logo-h--header {
+  font-size: 8px;
+  color: #666;
+}
+
+/* --- Sixtyfour Font (branding class — kept for loading label) --- */
+.tldw-brand {
+  font-family: "Sixtyfour", "Roboto", Arial, sans-serif;
+  font-size: inherit;
+  font-weight: normal;
+}
+
+/* --- TLDW Button (Homepage/Feed) --- */
+.tldw-btn {
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #aaa;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: "Roboto", Arial, sans-serif;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap;
+  margin-right: 4px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.tldw-btn:hover {
+  background: #fff;
+  color: #0f0f0f;
+  border-color: #fff;
+}
+
+.tldw-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* --- TLDW Button Hint Wipe Animation (pseudo-element gradient sweep) --- */
+.tldw-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.tldw-btn-blink::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(180,180,180,0.3) 40%, rgba(180,180,180,0.08) 70%, transparent 100%);
+  transform: translateX(-100%);
+  animation: tldw-wipe-slide 0.7s ease-out forwards;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+@keyframes tldw-wipe-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* --- TLDW Button (Watch Page) --- */
+.tldw-btn-watch {
+  margin-right: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.tldw-btn-watch .tldw-logo-h--btn {
+  font-size: 8px;
+}
+
+/* Sidebar recommendation buttons (compact layout) */
+.tldw-btn-sidebar {
+  position: absolute;
+  bottom: 2px;
+  right: 28px;
+  padding: 2px 5px;
+  font-size: 9px;
+  border-radius: 4px;
+  line-height: 1;
+  z-index: 10;
+  margin: 0;
+}
+
+.tldw-btn-sidebar .tldw-logo-h--btn {
+  font-size: 7px;
+}
+
+/* Ensure sidebar/channel metadata container is a positioning context */
+yt-lockup-metadata-view-model:has(.tldw-btn-sidebar),
+ytd-grid-video-renderer #meta:has(.tldw-btn-sidebar),
+ytd-grid-video-renderer #metadata:has(.tldw-btn-sidebar),
+ytd-rich-item-renderer #meta:has(.tldw-btn-sidebar),
+ytd-rich-item-renderer #metadata:has(.tldw-btn-sidebar),
+ytd-rich-item-renderer #details:has(.tldw-btn-sidebar) {
+  position: relative;
+}
+
+/* ====================================
+   FLOATING WIDGET (Bottom-Right Corner)
+   ==================================== */
+
+.tldw-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99999;
+  font-family: "Roboto", Arial, sans-serif;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* --- Setup State (First Run — Light Blue) --- */
+.tldw-widget--setup {
+  background: #1a1a1a;
+  border: 1px solid #2a4a5a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 10px rgba(100, 180, 255, 0.15);
+  animation: tldw-fadeIn 0.3s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tldw-widget--setup:hover {
+  background: #222;
+  border-color: #4a8ab5;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(100, 180, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Setup Hint — message above blue pill */
+.tldw-setup-hint {
+  position: absolute;
+  bottom: 50px;
+  right: 0;
+  background: #1a1a1a;
+  color: #64b4ff;
+  border: 1px solid #2a4a5a;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 8px rgba(100, 180, 255, 0.1);
+  animation: tldw-fadeIn 0.3s ease;
+  pointer-events: none;
+}
+
+.tldw-setup-hint::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  background: #1a1a1a;
+  border-right: 1px solid #2a4a5a;
+  border-bottom: 1px solid #2a4a5a;
+  transform: rotate(45deg);
+}
+
+/* --- Idle State (Red) --- */
+.tldw-widget--idle {
+  background: #1a1a1a;
+  border: 1px solid #5a2a2a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: tldw-fadeIn 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tldw-widget--idle:hover {
+  background: #2a1a1a;
+  border-color: #ff5f57;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 95, 87, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Idle Hint Tooltip */
+.tldw-idle-hint {
+  position: absolute;
+  bottom: 50px;
+  right: 0;
+  background: #1a1a1a;
+  color: #ccc;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: tldw-fadeIn 0.2s ease;
+  pointer-events: none;
+}
+
+.tldw-idle-hint::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  background: #1a1a1a;
+  border-right: 1px solid #333;
+  border-bottom: 1px solid #333;
+  transform: rotate(45deg);
+}
+
+/* --- Loading State (Progress Bar) --- */
+.tldw-widget--loading {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: tldw-fadeIn 0.2s ease;
+}
+
+/* Progress Row — bar + timer side by side */
+.tldw-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Progress Bar — 9 dots in a row */
+.tldw-progress-bar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Elapsed Timer */
+.tldw-progress-timer {
+  font-family: monospace;
+  font-size: 10px;
+  color: #555;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: right;
+}
+
+.tldw-progress-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: #888;
+  opacity: 0.3;
+  transition: background 0.3s ease, opacity 0.3s ease;
+  animation: tldw-dot-blink 0.7s ease-in-out infinite;
+}
+
+.tldw-progress-dot--active {
+  background: #fff;
+  opacity: 1;
+  animation: none;
+}
+
+.tldw-progress-dot--success {
+  background: #4caf50 !important;
+  opacity: 1 !important;
+  animation: tldw-dot-success-pulse 0.4s ease !important;
+}
+
+@keyframes tldw-dot-success-pulse {
+  0% { background: #fff; transform: scale(1); }
+  50% { background: #4caf50; transform: scale(1.8); }
+  100% { background: #4caf50; transform: scale(1); }
+}
+
+@keyframes tldw-dot-blink {
+  0%, 100% { opacity: 0.24; }
+  50% { opacity: 0.8; }
+}
+
+.tldw-widget-loading-label {
+  font-size: 9px;
+  color: #666;
+  letter-spacing: 0.3px;
+}
+
+/* --- Expanded State (Summary / Error / Onboarding) --- */
+.tldw-widget--expanded {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  width: 380px;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: tldw-slideUp 0.25s ease;
+}
+
+/* ====================================
+   THEME SYSTEM — dark, light, green, blue, pink, orange
+   Each pale-color theme uses a dark background with subtle colored accents.
+   Light theme uses a bright background.
+   ==================================== */
+
+/* --- Dark (default) — no overrides needed, base styles are dark --- */
+.tldw-theme-dark .tldw-summary p:first-child strong:first-child { color: #ff5f57; }
+
+/* --- Light Theme --- */
+.tldw-theme-light.tldw-widget--expanded {
+  background: #f5f5f5;
+  border-color: #ddd;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+.tldw-theme-light .tldw-widget-header { border-bottom-color: #ddd; }
+.tldw-theme-light .tldw-logo-h--header { color: #999; }
+.tldw-theme-light .tldw-widget-body { color: #222; }
+.tldw-theme-light .tldw-summary strong { color: #000; }
+.tldw-theme-light .tldw-summary p:first-child strong:first-child { color: #d44; }
+.tldw-theme-light .tldw-copy-btn { color: #666; border-color: #ccc; }
+.tldw-theme-light .tldw-copy-btn:hover { color: #000; border-color: #999; }
+.tldw-theme-light .tldw-theme-btn { border-color: #ccc; }
+.tldw-theme-light .tldw-theme-btn:hover { border-color: #999; }
+.tldw-theme-light .tldw-video-meta { border-bottom-color: #ddd; }
+.tldw-theme-light .tldw-meta-title { color: #111; }
+.tldw-theme-light .tldw-meta-channel { color: #555; }
+.tldw-theme-light .tldw-meta-info { color: #888; }
+.tldw-theme-light .tldw-scroll-top { color: #666; border-color: #ddd; }
+.tldw-theme-light .tldw-scroll-top:hover { color: #000; border-color: #999; background: #eee; }
+.tldw-theme-light .tldw-widget-body::-webkit-scrollbar-thumb { background: #ccc; }
+.tldw-theme-light .tldw-widget-body::-webkit-scrollbar-thumb:hover { background: #aaa; }
+.tldw-theme-light .tldw-timer-pill { background: #e8e8e8; border-color: #ddd; color: #666; }
+.tldw-theme-light .tldw-summary-counter { color: #999; }
+.tldw-theme-light .tldw-info-icon { border-color: #bbb; color: #999; }
+.tldw-theme-light .tldw-info-icon:hover { color: #666; border-color: #888; }
+
+/* --- Green Theme (pale mint on dark) --- */
+.tldw-theme-green.tldw-widget--expanded {
+  background: #141c18;
+  border-color: #2a4a38;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.tldw-theme-green .tldw-widget-header { border-bottom-color: #2a4a38; }
+.tldw-theme-green .tldw-logo-h--header { color: #5a8a6a; }
+.tldw-theme-green .tldw-summary strong { color: #b8e0c8; }
+.tldw-theme-green .tldw-summary p:first-child strong:first-child { color: #7dcea0; }
+.tldw-theme-green .tldw-meta-title { color: #c8e8d4; }
+.tldw-theme-green .tldw-meta-channel { color: #7da88a; }
+.tldw-theme-green .tldw-video-meta { border-bottom-color: #2a4a38; }
+.tldw-theme-green .tldw-copy-btn { color: #7da88a; border-color: #2a4a38; }
+.tldw-theme-green .tldw-copy-btn:hover { color: #b8e0c8; border-color: #5a8a6a; }
+.tldw-theme-green .tldw-theme-btn { border-color: #2a4a38; }
+.tldw-theme-green .tldw-theme-btn:hover { border-color: #5a8a6a; }
+.tldw-theme-green .tldw-scroll-top { color: #7da88a; border-color: #2a4a38; }
+.tldw-theme-green .tldw-scroll-top:hover { color: #b8e0c8; border-color: #5a8a6a; background: #1a2a20; }
+.tldw-theme-green .tldw-timer-pill { background: #1a2a20; border-color: #2a4a38; color: #7da88a; }
+.tldw-theme-green .tldw-info-icon { border-color: #2a4a38; color: #5a8a6a; }
+.tldw-theme-green .tldw-info-icon:hover { color: #7dcea0; border-color: #5a8a6a; }
+
+/* --- Blue Theme (pale sky on dark) --- */
+.tldw-theme-blue.tldw-widget--expanded {
+  background: #141820;
+  border-color: #2a3a5a;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.tldw-theme-blue .tldw-widget-header { border-bottom-color: #2a3a5a; }
+.tldw-theme-blue .tldw-logo-h--header { color: #5a7aaa; }
+.tldw-theme-blue .tldw-summary strong { color: #b0d0f0; }
+.tldw-theme-blue .tldw-summary p:first-child strong:first-child { color: #7db8e0; }
+.tldw-theme-blue .tldw-meta-title { color: #c8ddf0; }
+.tldw-theme-blue .tldw-meta-channel { color: #7a9aba; }
+.tldw-theme-blue .tldw-video-meta { border-bottom-color: #2a3a5a; }
+.tldw-theme-blue .tldw-copy-btn { color: #7a9aba; border-color: #2a3a5a; }
+.tldw-theme-blue .tldw-copy-btn:hover { color: #b0d0f0; border-color: #5a7aaa; }
+.tldw-theme-blue .tldw-theme-btn { border-color: #2a3a5a; }
+.tldw-theme-blue .tldw-theme-btn:hover { border-color: #5a7aaa; }
+.tldw-theme-blue .tldw-scroll-top { color: #7a9aba; border-color: #2a3a5a; }
+.tldw-theme-blue .tldw-scroll-top:hover { color: #b0d0f0; border-color: #5a7aaa; background: #1a2030; }
+.tldw-theme-blue .tldw-timer-pill { background: #1a2030; border-color: #2a3a5a; color: #7a9aba; }
+.tldw-theme-blue .tldw-info-icon { border-color: #2a3a5a; color: #5a7aaa; }
+.tldw-theme-blue .tldw-info-icon:hover { color: #7db8e0; border-color: #5a7aaa; }
+
+/* --- Pink Theme (pale rose on dark) --- */
+.tldw-theme-pink.tldw-widget--expanded {
+  background: #1c1418;
+  border-color: #4a2a3a;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.tldw-theme-pink .tldw-widget-header { border-bottom-color: #4a2a3a; }
+.tldw-theme-pink .tldw-logo-h--header { color: #8a5a70; }
+.tldw-theme-pink .tldw-summary strong { color: #e8c0d4; }
+.tldw-theme-pink .tldw-summary p:first-child strong:first-child { color: #e091b8; }
+.tldw-theme-pink .tldw-meta-title { color: #f0d0e0; }
+.tldw-theme-pink .tldw-meta-channel { color: #aa7a90; }
+.tldw-theme-pink .tldw-video-meta { border-bottom-color: #4a2a3a; }
+.tldw-theme-pink .tldw-copy-btn { color: #aa7a90; border-color: #4a2a3a; }
+.tldw-theme-pink .tldw-copy-btn:hover { color: #e8c0d4; border-color: #8a5a70; }
+.tldw-theme-pink .tldw-theme-btn { border-color: #4a2a3a; }
+.tldw-theme-pink .tldw-theme-btn:hover { border-color: #8a5a70; }
+.tldw-theme-pink .tldw-scroll-top { color: #aa7a90; border-color: #4a2a3a; }
+.tldw-theme-pink .tldw-scroll-top:hover { color: #e8c0d4; border-color: #8a5a70; background: #2a1a22; }
+.tldw-theme-pink .tldw-timer-pill { background: #2a1a22; border-color: #4a2a3a; color: #aa7a90; }
+.tldw-theme-pink .tldw-info-icon { border-color: #4a2a3a; color: #8a5a70; }
+.tldw-theme-pink .tldw-info-icon:hover { color: #e091b8; border-color: #8a5a70; }
+
+/* --- Orange Theme (pale amber on dark) --- */
+.tldw-theme-orange.tldw-widget--expanded {
+  background: #1c1814;
+  border-color: #4a3a2a;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.tldw-theme-orange .tldw-widget-header { border-bottom-color: #4a3a2a; }
+.tldw-theme-orange .tldw-logo-h--header { color: #8a7a5a; }
+.tldw-theme-orange .tldw-summary strong { color: #e8d0b0; }
+.tldw-theme-orange .tldw-summary p:first-child strong:first-child { color: #e0a870; }
+.tldw-theme-orange .tldw-meta-title { color: #f0e0c8; }
+.tldw-theme-orange .tldw-meta-channel { color: #aa9a7a; }
+.tldw-theme-orange .tldw-video-meta { border-bottom-color: #4a3a2a; }
+.tldw-theme-orange .tldw-copy-btn { color: #aa9a7a; border-color: #4a3a2a; }
+.tldw-theme-orange .tldw-copy-btn:hover { color: #e8d0b0; border-color: #8a7a5a; }
+.tldw-theme-orange .tldw-theme-btn { border-color: #4a3a2a; }
+.tldw-theme-orange .tldw-theme-btn:hover { border-color: #8a7a5a; }
+.tldw-theme-orange .tldw-scroll-top { color: #aa9a7a; border-color: #4a3a2a; }
+.tldw-theme-orange .tldw-scroll-top:hover { color: #e8d0b0; border-color: #8a7a5a; background: #2a2218; }
+.tldw-theme-orange .tldw-timer-pill { background: #2a2218; border-color: #4a3a2a; color: #aa9a7a; }
+.tldw-theme-orange .tldw-info-icon { border-color: #4a3a2a; color: #8a7a5a; }
+.tldw-theme-orange .tldw-info-icon:hover { color: #e0a870; border-color: #8a7a5a; }
+
+/* --- Widget Header --- */
+.tldw-widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.tldw-widget-title {
+  flex: 1;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Summary counter badge next to logo in header */
+.tldw-summary-counter {
+  font-family: monospace;
+  font-size: 8px;
+  color: #555;
+  margin-left: 4px;
+  vertical-align: middle;
+  letter-spacing: 0;
+}
+
+.tldw-theme-light .tldw-summary-counter {
+  color: #999;
+}
+
+/* Skip animations on re-renders (theme change, copy, counter update) */
+.tldw-no-anim.tldw-widget--expanded {
+  animation: none;
+}
+.tldw-no-anim .tldw-widget-body {
+  animation: none;
+}
+
+/* --- Widget Body --- */
+.tldw-widget-body {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+  line-height: 1.6;
+  font-size: 13px;
+  color: #e8e8e8;
+  animation: tldw-body-fade 0.35s ease;
+}
+
+@keyframes tldw-body-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom scrollbar */
+.tldw-widget-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tldw-widget-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tldw-widget-body::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.tldw-widget-body::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* --- Minimized State (Yellow) --- */
+.tldw-widget--minimized {
+  background: #1a1a1a;
+  border: 1px solid #5a4a1a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  animation: tldw-fadeIn 0.2s ease;
+}
+
+.tldw-widget--minimized:hover {
+  background: #2a2a1a;
+  border-color: #febc2e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(254, 188, 46, 0.2);
+}
+
+/* --- Window Control Dots (macOS style) --- */
+.tldw-window-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tldw-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tldw-dot:hover {
+  opacity: 0.8;
+  transform: scale(1.15);
+}
+
+.tldw-dot-close {
+  background: #ff5f57;
+}
+
+.tldw-dot-minimize {
+  background: #febc2e;
+}
+
+/* --- Info Icon (next to minimize dot) --- */
+.tldw-info-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #555;
+  background: transparent;
+  color: #777;
+  font-size: 8px;
+  font-weight: 700;
+  font-family: "Roboto", Arial, sans-serif;
+  font-style: italic;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.tldw-info-icon:hover {
+  color: #bbb;
+  border-color: #888;
+}
+
+/* --- Info Tooltip (hover popup) --- */
+.tldw-info-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  color: #ccc;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.6;
+  width: 260px;
+  white-space: normal;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.tldw-info-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: #111;
+  border-right: 1px solid #333;
+  border-bottom: 1px solid #333;
+}
+
+.tldw-info-icon:hover .tldw-info-tooltip {
+  display: block;
+}
+
+.tldw-info-tooltip strong {
+  color: #fff;
+}
+
+/* Light theme tooltip overrides */
+.tldw-theme-light .tldw-info-tooltip {
+  background: #fff;
+  color: #444;
+  border-color: #ddd;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.tldw-theme-light .tldw-info-tooltip::after {
+  background: #fff;
+  border-right-color: #ddd;
+  border-bottom-color: #ddd;
+}
+.tldw-theme-light .tldw-info-tooltip strong {
+  color: #111;
+}
+
+/* --- Header Actions (right side) --- */
+.tldw-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* --- Theme Toggle Button --- */
+.tldw-theme-btn {
+  background: transparent;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+  line-height: 1;
+}
+
+.tldw-theme-btn:hover {
+  border-color: #666;
+  filter: brightness(1.3);
+}
+
+/* --- Copy Button --- */
+.tldw-copy-btn {
+  background: transparent;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: "Roboto", Arial, sans-serif;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.tldw-copy-btn:hover {
+  color: #fff;
+  border-color: #666;
+}
+
+.tldw-copy-success {
+  color: #4caf50 !important;
+  border-color: #4caf50 !important;
+}
+
+/* --- Video Metadata Block --- */
+.tldw-video-meta {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #333;
+}
+
+.tldw-meta-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.tldw-meta-channel {
+  font-size: 12px;
+  font-weight: 500;
+  color: #aaa;
+  margin-bottom: 2px;
+}
+
+.tldw-meta-info {
+  font-size: 11px;
+  color: #666;
+}
+
+/* --- Timer Pill (above summary) --- */
+.tldw-timer-pill {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 10px;
+  color: #888;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 2px 10px;
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
+  animation: tldw-pill-in 0.3s ease;
+}
+
+@keyframes tldw-pill-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* (timer pill theme overrides are in the theme system section above) */
+
+/* --- Summary Content --- */
+.tldw-summary p {
+  margin: 0 0 10px;
+}
+
+.tldw-summary ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.tldw-summary li {
+  margin-bottom: 5px;
+}
+
+.tldw-summary strong {
+  color: #fff;
+}
+
+/* TLDW: quick-answer callout styling — themed in the theme system above */
+
+/* --- Scroll-to-Top Button --- */
+.tldw-scroll-top {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 8px;
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: "Roboto", Arial, sans-serif;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  text-align: center;
+}
+
+.tldw-scroll-top:hover {
+  color: #fff;
+  border-color: #666;
+  background: #2a2a2a;
+}
+
+/* --- Error --- */
+.tldw-error {
+  color: #f44;
+  text-align: center;
+  padding: 12px 0;
+  font-size: 12px;
+}
+
+/* --- Onboarding Content --- */
+.tldw-onboarding {
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.tldw-onboard-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.tldw-onboard-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ccc;
+  margin: 14px 0 6px;
+}
+
+.tldw-onboard-text {
+  color: #bbb;
+  margin-bottom: 6px;
+}
+
+.tldw-onboard-steps {
+  padding-left: 18px;
+  margin: 6px 0 10px;
+  color: #bbb;
+}
+
+.tldw-onboard-steps li {
+  margin-bottom: 4px;
+}
+
+.tldw-onboard-steps a {
+  color: #64b4ff;
+  text-decoration: underline;
+}
+
+.tldw-onboard-note {
+  color: #888;
+  font-size: 11px;
+  font-style: italic;
+  margin-bottom: 14px;
+}
+
+.tldw-onboard-input-wrap {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tldw-onboard-input {
+  flex: 1;
+  padding: 8px 10px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-family: monospace;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tldw-onboard-input:focus {
+  border-color: #64b4ff;
+}
+
+.tldw-onboard-save {
+  padding: 8px 14px;
+  background: #64b4ff;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.tldw-onboard-save:hover {
+  opacity: 0.85;
+}
+
+.tldw-onboard-status {
+  font-size: 11px;
+  min-height: 16px;
+  margin-bottom: 8px;
+}
+
+.tldw-onboard-privacy {
+  font-size: 10px;
+  color: #555;
+  margin-top: 4px;
+}
+
+/* --- Animations --- */
+@keyframes tldw-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes tldw-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tldw-slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

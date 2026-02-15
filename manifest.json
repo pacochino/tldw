@@ -1,0 +1,51 @@
+{
+  "manifest_version": 2,
+  "name": "tLDw – Too Lazy, Didn't Watch",
+  "version": "1.0.0",
+  "description": "One-click YouTube video summaries powered by your own free Gemini API key. Get the TLDW on any video — no tracking, no data collection, fully private.",
+  "author": "pacochino",
+  "homepage_url": "https://github.com/pacochino/tldw",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "*://*.youtube.com/*",
+    "*://generativelanguage.googleapis.com/*",
+    "*://fonts.googleapis.com/*",
+    "*://fonts.gstatic.com/*"
+  ],
+  "browser_action": {
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    },
+    "default_title": "tLDw Settings"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "settings/settings.html",
+    "open_in_tab": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tldw@pacochino",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}
