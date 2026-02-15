@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>tLDw Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Roboto", Arial, sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      display: flex;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+    .container {
+      max-width: 480px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-family: monospace;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus {
+      border-color: #666;
+    }
+    .btn {
+      margin-top: 16px;
+      padding: 10px 24px;
+      background: #fff;
+      color: #0f0f0f;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover {
+      opacity: 0.85;
+    }
+    .status {
+      margin-top: 16px;
+      font-size: 13px;
+      min-height: 20px;
+    }
+    .status.success { color: #4caf50; }
+    .status.error { color: #f44; }
+    .help {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.6;
+    }
+    .help a {
+      color: #aaa;
+      text-decoration: underline;
+    }
+    .about {
+      margin-bottom: 28px;
+      font-size: 13px;
+      color: #bbb;
+      line-height: 1.7;
+    }
+    .about p {
+      margin-bottom: 8px;
+    }
+    .about strong {
+      color: #e8e8e8;
+    }
+    .section {
+      margin-bottom: 24px;
+    }
+    .section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #e8e8e8;
+      margin-bottom: 6px;
+    }
+    .section-desc {
+      font-size: 13px;
+      color: #bbb;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+    .steps {
+      padding-left: 20px;
+      font-size: 13px;
+      color: #bbb;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+    .steps a {
+      color: #64b4ff;
+      text-decoration: underline;
+    }
+    .steps strong {
+      color: #e8e8e8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>tLDw</h1>
+    <p class="subtitle">Too Lazy, Didn't Watch</p>
+
+    <div class="about">
+      <p>tLDw is a lightweight browser extension that summarizes YouTube videos so you don't have to watch the whole thing. It reads the video transcript and uses AI to give you a concise summary with timestamps — great for podcasts, long-form content, and clickbait.</p>
+      <p>Click the <strong>tLDw</strong> button on any video to get a quick summary. The tool will answer the video's title directly, then provide key points with timestamps.</p>
+    </div>
+
+    <div class="section">
+      <h2>Setup</h2>
+      <p class="section-desc">To keep this extension free, you use your own Gemini API key (also free). Follow these steps:</p>
+      <ol class="steps">
+        <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></li>
+        <li>Sign in with your Google account</li>
+        <li>Click <strong>"Create API Key"</strong></li>
+        <li>Copy the key and paste it below</li>
+      </ol>
+    </div>
+
+    <label for="apiKey1">Primary API Key</label>
+    <input type="text" id="apiKey1" placeholder="Paste your Gemini API key here" autocomplete="off" spellcheck="false">
+
+    <label for="apiKey2" style="margin-top:16px;">Fallback Key 1 <span style="color:#666; font-size:11px;">(optional)</span></label>
+    <input type="text" id="apiKey2" placeholder="Optional — used if primary hits rate limit" autocomplete="off" spellcheck="false">
+
+    <label for="apiKey3" style="margin-top:16px;">Fallback Key 2 <span style="color:#666; font-size:11px;">(optional)</span></label>
+    <input type="text" id="apiKey3" placeholder="Optional — used if both above hit rate limit" autocomplete="off" spellcheck="false">
+
+    <button class="btn" id="saveBtn">Save Keys</button>
+    <p class="status" id="status"></p>
+
+    <div class="help">
+      <p>Your keys are stored locally and only sent to Google's Gemini API. This extension does not collect or transmit any data.</p>
+      <p>The free tier is generous enough for many summaries per day. If you hit a rate limit, tLDw will automatically try the next key. You can create multiple keys in <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> under different projects.</p>
+    </div>
+
+    <div class="section" style="margin-top: 40px;">
+      <h2>Speed & How It Works</h2>
+      <p class="section-desc">tLDw works by reading the video transcript and sending it to Gemini for summarization. Speed depends on where you click:</p>
+      <ul class="steps" style="list-style:none; padding-left:0;">
+        <li style="margin-bottom:8px;"><strong>On the video page</strong> — ~10 seconds. The transcript is scraped directly from the page. This is the fastest method.</li>
+        <li style="margin-bottom:8px;"><strong>From the homepage or sidebar</strong> — ~20 seconds. tLDw must briefly open the video in a background tab to extract the transcript. You'll see the tab flash twice — this is required because YouTube only renders transcript data when a tab has focus. This is the fastest approach possible while keeping the tool free and privacy-respecting.</li>
+      </ul>
+      <p class="section-desc">For comparison, YouTube's built-in Gemini "Ask" feature takes about 8 seconds but requires two clicks and a scroll. tLDw trades a few extra seconds for a single-click experience.</p>
+      <p class="section-desc" style="margin-top:8px; color:#888; font-size:12px;">Speed is constrained by YouTube's transcript rendering requirements and Gemini's free-tier API response times. The elapsed timer on the loading bar shows real-time progress so you always know where things stand.</p>
+    </div>
+
+    <div class="section" style="margin-top: 40px;">
+      <h2>Custom Prompt</h2>
+      <p class="section-desc">Customize the prompt sent to Gemini when summarizing. Use <code style="color:#64b4ff; background:#1a1a1a; padding:1px 4px; border-radius:3px;">{title}</code> and <code style="color:#64b4ff; background:#1a1a1a; padding:1px 4px; border-radius:3px;">{transcript}</code> as placeholders.</p>
+      <textarea id="customPrompt" rows="10" style="width:100%; padding:10px 14px; background:#1a1a1a; border:1px solid #333; border-radius:8px; color:#fff; font-size:13px; font-family:monospace; outline:none; resize:vertical; line-height:1.6; transition:border-color 0.15s;" spellcheck="false"></textarea>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn" id="savePromptBtn">Save Prompt</button>
+        <button class="btn" id="resetPromptBtn" style="background:#333; color:#ccc;">Reset to Default</button>
+      </div>
+      <p class="status" id="promptStatus"></p>
+    </div>
+
+    <div class="section" style="margin-top: 40px;">
+      <h2>Summary Counter</h2>
+      <p class="section-desc">You've summarized <strong id="counterDisplay">0</strong> videos so far.</p>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn" id="resetCounterBtn" style="background:#333; color:#ccc;">Reset Counter</button>
+        <button class="btn" id="toggleCounterBtn" style="background:#333; color:#ccc;">Hide Counter</button>
+      </div>
+      <p class="status" id="counterStatus"></p>
+    </div>
+
+    <div class="section" style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #333;">
+      <p style="font-size: 12px; color: #666; line-height: 1.8;">
+        <a href="https://github.com/pacochino/tldw" target="_blank" rel="noopener" style="color: #64b4ff; text-decoration: underline;">GitHub Repository</a><br>
+        Licensed under the <strong style="color:#888;">GNU General Public License v3.0</strong> — you're free to use, modify, and redistribute this software, provided any derivative work is also open source under the same license.<br>
+        Made by <a href="https://pacochino.com" target="_blank" rel="noopener" style="color: #888; text-decoration: underline;">pacochino</a>
+      </p>
+    </div>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>
