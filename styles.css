@@ -613,7 +613,7 @@ ytd-rich-item-renderer #details:has(.tldw-btn-sidebar) {
   background: #febc2e;
 }
 
-/* --- Info Icon (next to minimize dot) --- */
+/* --- Gear / Settings Icon (in window controls) --- */
 .tldw-info-icon {
   width: 12px;
   height: 12px;
@@ -621,16 +621,13 @@ ytd-rich-item-renderer #details:has(.tldw-btn-sidebar) {
   border: 1px solid #555;
   background: transparent;
   color: #777;
-  font-size: 8px;
-  font-weight: 700;
+  font-size: 10px;
   font-family: "Roboto", Arial, sans-serif;
-  font-style: italic;
   cursor: pointer;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   transition: color 0.15s, border-color 0.15s;
   line-height: 1;
 }
@@ -638,66 +635,6 @@ ytd-rich-item-renderer #details:has(.tldw-btn-sidebar) {
 .tldw-info-icon:hover {
   color: #bbb;
   border-color: #888;
-}
-
-/* --- Info Tooltip (hover popup) --- */
-.tldw-info-tooltip {
-  display: none;
-  position: absolute;
-  bottom: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #111;
-  color: #ccc;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: 1.6;
-  width: 260px;
-  white-space: normal;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-  z-index: 10;
-  pointer-events: none;
-}
-
-.tldw-info-tooltip::after {
-  content: "";
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  width: 10px;
-  height: 10px;
-  background: #111;
-  border-right: 1px solid #333;
-  border-bottom: 1px solid #333;
-}
-
-.tldw-info-icon:hover .tldw-info-tooltip {
-  display: block;
-}
-
-.tldw-info-tooltip strong {
-  color: #fff;
-}
-
-/* Light theme tooltip overrides */
-.tldw-theme-light .tldw-info-tooltip {
-  background: #fff;
-  color: #444;
-  border-color: #ddd;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-.tldw-theme-light .tldw-info-tooltip::after {
-  background: #fff;
-  border-right-color: #ddd;
-  border-bottom-color: #ddd;
-}
-.tldw-theme-light .tldw-info-tooltip strong {
-  color: #111;
 }
 
 /* --- Header Actions (right side) --- */
@@ -948,6 +885,207 @@ ytd-rich-item-renderer #details:has(.tldw-btn-sidebar) {
   font-size: 10px;
   color: #555;
   margin-top: 4px;
+}
+
+/* --- Settings Panel --- */
+.tldw-settings {
+  font-size: 12px;
+}
+
+.tldw-settings-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.tldw-settings-section-title:first-child {
+  margin-top: 0;
+}
+
+.tldw-settings-about {
+  color: #bbb;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.tldw-settings-label {
+  font-size: 10px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.tldw-settings-label a {
+  text-decoration: underline;
+}
+
+.tldw-settings-input {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  color: #ddd;
+  font-size: 11px;
+  font-family: monospace;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.tldw-settings-input:focus {
+  border-color: #555;
+}
+
+.tldw-settings-textarea {
+  display: block;
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  color: #ddd;
+  font-size: 10px;
+  font-family: monospace;
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.tldw-settings-textarea:focus {
+  border-color: #555;
+}
+
+.tldw-settings-btn {
+  padding: 5px 12px;
+  background: #64b4ff;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Roboto", Arial, sans-serif;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.tldw-settings-btn:hover {
+  opacity: 0.85;
+}
+
+.tldw-settings-btn--secondary {
+  background: transparent;
+  color: #888;
+  border: 1px solid #3a3a3a;
+  font-weight: 400;
+}
+
+.tldw-settings-btn--secondary:hover {
+  color: #ddd;
+  border-color: #666;
+  opacity: 1;
+}
+
+.tldw-settings-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.tldw-settings-status {
+  font-size: 10px;
+  min-height: 14px;
+  margin: 4px 0 8px;
+  color: #666;
+}
+
+.tldw-settings-pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tldw-settings-pref-label {
+  font-size: 12px;
+  color: #bbb;
+}
+
+/* --- Position picker grid --- */
+.tldw-settings-pos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.tldw-settings-pos-btn {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 7px 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.tldw-settings-pos-btn:hover {
+  background: #333;
+  border-color: #666;
+  color: #ccc;
+}
+
+.tldw-settings-pos-btn--active {
+  background: #332a10;
+  border-color: #febc2e;
+  color: #febc2e;
+}
+
+/* --- Opacity range slider --- */
+.tldw-settings-slider {
+  width: 100%;
+  margin-bottom: 12px;
+  accent-color: #febc2e;
+  cursor: pointer;
+}
+
+/* --- Fullscreen dismiss button (×) on compact pill --- */
+.tldw-fs-dismiss {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #aaa;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  z-index: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tldw-fs-dismiss:hover {
+  background: rgba(255, 95, 87, 0.85);
+  color: #fff;
+  border-color: transparent;
 }
 
 /* --- Animations --- */

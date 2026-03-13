@@ -246,7 +246,7 @@ async function fetchTranscriptViaInnertube(videoId) {
         context: {
           client: {
             clientName: "WEB",
-            clientVersion: "2.20240101.00.00",
+            clientVersion: "2.20250101.00.00",
             hl: "en"
           }
         }

@@ -26,6 +26,15 @@
     pink:   { accent: "#e091b8", star: "#e091b8" },
     orange: { accent: "#e0a870", star: "#e0a870" }
   };
+  // Background RGB values per theme — used for rgba() translucency override
+  const THEME_BG_RGB = {
+    dark:   "26, 26, 26",
+    light:  "245, 245, 245",
+    green:  "20, 28, 24",
+    blue:   "20, 24, 32",
+    pink:   "28, 20, 24",
+    orange: "28, 24, 20",
+  };
   let currentTheme = "dark";
   let hasApiKey = false; // tracks whether API key is configured
   let loadingTimerInterval = null; // elapsed timer for loading state
@@ -35,6 +44,22 @@
   let totalSummaryCount = 0; // lifetime counter loaded from storage
   let hideCounter = false; // whether to hide the counter badge
   let hasRenderedExpanded = false; // tracks if expanded widget was already shown (skip re-animation)
+  let settingsPreviousState = "idle"; // where to return when closing settings
+  let currentOpacity = 1.0; // widget background opacity (0.2–1.0)
+  let currentPosition = "bottom-right"; // widget corner/edge position
+  let isFullscreen = false; // true while YouTube is in fullscreen
+
+  const POSITION_STYLES = {
+    "top-left":      { top: "20px", bottom: "", left: "20px",  right: "",     transform: "" },
+    "top-center":    { top: "20px", bottom: "", left: "50%",   right: "",     transform: "translateX(-50%)" },
+    "top-right":     { top: "20px", bottom: "", left: "",      right: "20px", transform: "" },
+    "bottom-left":   { top: "",     bottom: "20px", left: "20px",  right: "",     transform: "" },
+    "bottom-center": { top: "",     bottom: "20px", left: "50%",   right: "",     transform: "translateX(-50%)" },
+    "bottom-right":  { top: "",     bottom: "20px", left: "",      right: "20px", transform: "" },
+  };
+  // Fullscreen safe position: between bottom-right corner and bottom-center
+  const FULLSCREEN_POSITION = { top: "", bottom: "5px", left: "", right: "22%", transform: "" };
+  let fullscreenDismissed = false; // user hid the widget during fullscreen
 
   // --- Inject Sixtyfour font ---
   function injectFont() {
@@ -88,13 +113,15 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Load lifetime summary count, visibility, and theme preference
-    browser.storage.local.get(["tldwSummaryCount", "tldwHideCounter", "tldwTheme"]).then((result) => {
+    // Load lifetime summary count, visibility, theme, opacity, and position preference
+    browser.storage.local.get(["tldwSummaryCount", "tldwHideCounter", "tldwTheme", "tldwOpacity", "tldwPosition"]).then((result) => {
       totalSummaryCount = result.tldwSummaryCount || 0;
       hideCounter = result.tldwHideCounter || false;
       if (result.tldwTheme && THEMES.indexOf(result.tldwTheme) !== -1) {
         currentTheme = result.tldwTheme;
       }
+      if (result.tldwOpacity !== undefined) currentOpacity = result.tldwOpacity;
+      if (result.tldwPosition && POSITION_STYLES[result.tldwPosition]) currentPosition = result.tldwPosition;
     });
 
     // Check if API key is set — if not, show setup state
@@ -129,6 +156,19 @@
         totalSummaryCount = changes.tldwSummaryCount.newValue || 0;
         updateCounterBadge();
       }
+    });
+
+    // Auto-reposition widget during fullscreen to avoid covering player controls
+    document.addEventListener("fullscreenchange", () => {
+      isFullscreen = !!document.fullscreenElement;
+      const fsWidget = document.getElementById(WIDGET_ID);
+      if (!isFullscreen) {
+        // Restore widget if it was dismissed during fullscreen
+        fullscreenDismissed = false;
+        if (fsWidget) fsWidget.style.display = "";
+      }
+      applyPosition(fsWidget);
+      updateWidget();
     });
 
     injectButtons();
@@ -260,6 +300,27 @@
       const panelWasVisible = isTranscriptPanelVisible();
       transcriptBtn.click();
 
+      // If the panel has a "Chapters" + "Transcript" tab layout (videos with chapters),
+      // we need to ensure the Transcript tab is active before scraping.
+      await sleep(400);
+      try {
+        const panel = document.querySelector('ytd-engagement-panel-section-list-renderer[target-id*="transcript"]');
+        if (panel) {
+          const tabs = panel.querySelectorAll('tp-yt-paper-tab, [role="tab"]');
+          const transcriptTab = Array.from(tabs).find(
+            t => t.textContent.trim().toLowerCase() === "transcript"
+          );
+          if (transcriptTab) {
+            const isActive = transcriptTab.classList.contains("iron-selected") ||
+                             transcriptTab.getAttribute("aria-selected") === "true";
+            if (!isActive) {
+              transcriptTab.click();
+              await sleep(300);
+            }
+          }
+        }
+      } catch (e) { }
+
       // Adaptive content polling: starts fast, backs off
       var contentDelays = [150, 250, 400, 600, 800, 1000, 1200, 1500];
       for (let attempt = 0; attempt < contentDelays.length; attempt++) {
@@ -307,10 +368,15 @@
   }
 
   function findTranscriptButton() {
+    // Current structure: button inside the transcript section renderer
+    const vmBtn = document.querySelector("ytd-video-description-transcript-section-renderer button");
+    if (vmBtn) return vmBtn;
+
+    // Text search — "Show transcript" button in description area
     const allButtons = document.querySelectorAll("button, ytd-button-renderer");
     for (const btn of allButtons) {
       const text = btn.textContent.trim().toLowerCase();
-      if (text === "show transcript") {
+      if (text === "show transcript" || text === "transcript") {
         const innerBtn = btn.querySelector("button");
         return innerBtn || btn;
       }
@@ -343,11 +409,30 @@
   }
 
   function scrapeTranscriptFromDOM() {
-    const segments = document.querySelectorAll("ytd-transcript-segment-renderer");
-    if (segments.length === 0) return null;
-
     const textParts = [];
     const seen = new Set();
+
+    // Current structure (YouTube 2026): transcript-segment-view-model custom elements
+    const newSegments = document.querySelectorAll("transcript-segment-view-model");
+    if (newSegments.length > 0) {
+      newSegments.forEach((seg) => {
+        const textEl = seg.querySelector("span.yt-core-attributed-string--link-inherit-color");
+        const timeEl = seg.querySelector(".ytwTranscriptSegmentViewModelTimestamp");
+        if (textEl) {
+          const text = textEl.textContent.trim();
+          const timestamp = timeEl ? timeEl.textContent.trim() : "";
+          if (text.length > 0 && !seen.has(text)) {
+            seen.add(text);
+            textParts.push(timestamp ? "[" + timestamp + "] " + text : text);
+          }
+        }
+      });
+      if (textParts.length > 0) return textParts.join("\n");
+    }
+
+    // Legacy structure (pre-2026): ytd-transcript-segment-renderer
+    const segments = document.querySelectorAll("ytd-transcript-segment-renderer");
+    if (segments.length === 0) return null;
 
     segments.forEach((seg) => {
       const textEl =
@@ -362,11 +447,7 @@
         const timestamp = timeEl ? timeEl.textContent.trim() : "";
         if (text.length > 0 && !seen.has(text)) {
           seen.add(text);
-          if (timestamp) {
-            textParts.push("[" + timestamp + "] " + text);
-          } else {
-            textParts.push(text);
-          }
+          textParts.push(timestamp ? "[" + timestamp + "] " + text : text);
         }
       }
     });
@@ -586,6 +667,8 @@
     const menu = dismissible.querySelector(":scope > #menu, :scope > #details #menu");
     if (menu && menu.parentElement) {
       const btn = createButton(videoId);
+      btn.classList.add("tldw-btn-sidebar");
+      menu.parentElement.style.position = "relative";
       menu.parentElement.insertBefore(btn, menu);
       return true;
     }
@@ -593,7 +676,8 @@
     const details = dismissible.querySelector("#details, #meta");
     if (details) {
       const btn = createButton(videoId);
-      btn.style.marginTop = "4px";
+      btn.classList.add("tldw-btn-sidebar");
+      details.style.position = "relative";
       details.appendChild(btn);
       return true;
     }
@@ -607,13 +691,15 @@
     const metadataDiv = lockup.querySelector(".yt-lockup-view-model__metadata");
     if (metadataDiv) {
       const btn = createButton(videoId);
-      btn.style.marginTop = "4px";
+      btn.classList.add("tldw-btn-sidebar");
+      metadataDiv.style.position = "relative";
       metadataDiv.appendChild(btn);
       return;
     }
 
     const btn = createButton(videoId);
-    btn.style.marginTop = "4px";
+    btn.classList.add("tldw-btn-sidebar");
+    lockup.style.position = "relative";
     lockup.appendChild(btn);
   }
 
@@ -828,6 +914,8 @@
     widget.className = "tldw-widget";
     document.body.appendChild(widget);
 
+    applyPosition(widget);
+    applyOpacity(widget);
     updateWidget();
   }
 
@@ -845,6 +933,42 @@
       themeBtn.style.color = THEME_COLORS[currentTheme].star;
       themeBtn.title = "Theme: " + currentTheme;
     }
+    // Re-apply translucency so rgba background stays correct for the new theme
+    applyOpacity(widget);
+  }
+
+  function applyPosition(widget) {
+    if (!widget) return;
+    const pos = isFullscreen ? FULLSCREEN_POSITION : (POSITION_STYLES[currentPosition] || POSITION_STYLES["bottom-right"]);
+    widget.style.top       = pos.top;
+    widget.style.bottom    = pos.bottom;
+    widget.style.left      = pos.left;
+    widget.style.right     = pos.right;
+    widget.style.transform = pos.transform;
+  }
+
+  // Applies translucency: only overrides the expanded panel background (text stays opaque).
+  // Injects a <style> tag with rgba background + backdrop-filter blur.
+  function applyOpacity(widget) {
+    if (!widget) return;
+    // Clear any old element-level opacity (previous approach)
+    widget.style.opacity = "";
+
+    let styleEl = document.getElementById("tldw-translucency-style");
+    if (currentOpacity >= 1.0) {
+      if (styleEl) styleEl.textContent = "";
+      return;
+    }
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "tldw-translucency-style";
+      document.head.appendChild(styleEl);
+    }
+    const rgb = THEME_BG_RGB[currentTheme] || THEME_BG_RGB.dark;
+    const blur = Math.round((1 - currentOpacity) * 20);
+    styleEl.textContent = "#tldw-widget.tldw-widget--expanded { " +
+      "background: rgba(" + rgb + ", " + currentOpacity + ") !important; " +
+      "backdrop-filter: blur(" + blur + "px) !important; }";
   }
 
   // Targeted counter badge update — no DOM rebuild
@@ -905,6 +1029,24 @@
       renderErrorWidget(widget);
     } else if (widgetState === "minimized") {
       renderMinimizedWidget(widget);
+    } else if (widgetState === "settings") {
+      renderSettingsWidget(widget);
+    }
+
+    // Fullscreen: hide widget if dismissed, or show dismiss button on compact states
+    if (isFullscreen && fullscreenDismissed) {
+      widget.style.display = "none";
+    } else if (isFullscreen && !widget.classList.contains("tldw-widget--expanded")) {
+      const dismissBtn = document.createElement("button");
+      dismissBtn.className = "tldw-fs-dismiss";
+      dismissBtn.textContent = "\u00d7";
+      dismissBtn.title = "Hide during fullscreen";
+      dismissBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fullscreenDismissed = true;
+        widget.style.display = "none";
+      });
+      widget.appendChild(dismissBtn);
     }
   }
 
@@ -1147,16 +1289,15 @@
   }
 
   function handleIdleClick(e) {
-    // Only trigger if we're actually in idle state and no summary exists
     if (widgetState !== "idle") return;
-    if (lastSummaryRaw) return;
 
     // Don't trigger on text selection (user dragging to highlight)
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
 
-    showIdleHint();
-    blinkTldwButtons();
+    settingsPreviousState = "idle";
+    widgetState = "settings";
+    updateWidget();
   }
 
   function showIdleHint() {
@@ -1337,37 +1478,20 @@
       updateWidget();
     });
 
-    const infoIcon = document.createElement("span");
-    infoIcon.className = "tldw-info-icon";
-    infoIcon.textContent = "i";
-
-    const tooltip = document.createElement("span");
-    tooltip.className = "tldw-info-tooltip";
-    function addTooltipLine(boldText, normalText) {
-      if (tooltip.childNodes.length > 0) {
-        tooltip.appendChild(document.createElement("br"));
-        tooltip.appendChild(document.createElement("br"));
-      }
-      if (boldText) {
-        var b = document.createElement("strong");
-        b.textContent = boldText;
-        tooltip.appendChild(b);
-      }
-      if (normalText) {
-        tooltip.appendChild(document.createTextNode(normalText));
-      }
-    }
-    addTooltipLine("tLDw", " \u2014 Too Lazy, Didn\u2019t Watch");
-    addTooltipLine(null, "Uses your own Gemini API key (free from Google AI Studio) to summarize YouTube transcripts.");
-    addTooltipLine("Speed: ", "~10s on a video page, ~20s from homepage/sidebar. Homepage clicks briefly open the video tab twice to extract the transcript \u2014 this is required by YouTube.");
-    addTooltipLine("Rate limits: ", "The free tier allows many summaries per day. If you get an error, wait a minute and try again.");
-    addTooltipLine("Custom prompt: ", "Customize in extension settings (right-click tLDw icon \u2192 Extension Settings).");
-    addTooltipLine("Privacy: ", "Your API key is stored locally and only sent to Google\u2019s Gemini API. No data is collected.");
-    infoIcon.appendChild(tooltip);
+    const gearBtn = document.createElement("button");
+    gearBtn.className = "tldw-info-icon";
+    gearBtn.textContent = "\u2699";
+    gearBtn.title = "Settings";
+    gearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      settingsPreviousState = "summary";
+      widgetState = "settings";
+      updateWidget();
+    });
 
     controls.appendChild(closeBtn);
     controls.appendChild(minimizeBtn);
-    controls.appendChild(infoIcon);
+    controls.appendChild(gearBtn);
 
     const title = document.createElement("span");
     title.className = "tldw-widget-title";
@@ -1528,7 +1652,20 @@
       lastSummaryRaw = null;
       updateWidget();
     });
+
+    const errorGearBtn = document.createElement("button");
+    errorGearBtn.className = "tldw-info-icon";
+    errorGearBtn.textContent = "\u2699";
+    errorGearBtn.title = "Settings";
+    errorGearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      settingsPreviousState = "error";
+      widgetState = "settings";
+      updateWidget();
+    });
+
     controls.appendChild(closeBtn);
+    controls.appendChild(errorGearBtn);
 
     const title = document.createElement("span");
     title.className = "tldw-widget-title";
@@ -1548,6 +1685,256 @@
     errorEl.className = "tldw-error";
     errorEl.textContent = lastSummaryRaw;
     body.appendChild(errorEl);
+
+    widget.appendChild(header);
+    widget.appendChild(body);
+  }
+
+  // --- Settings State ---
+
+  function renderSettingsWidget(widget) {
+    widget.classList.add("tldw-widget--expanded");
+    if (hasRenderedExpanded) {
+      widget.classList.add("tldw-no-anim");
+    }
+    hasRenderedExpanded = true;
+
+    const header = document.createElement("div");
+    header.className = "tldw-widget-header";
+
+    const controls = document.createElement("div");
+    controls.className = "tldw-window-controls";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "tldw-dot tldw-dot-close";
+    closeBtn.title = "Close";
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      widgetState = "idle";
+      lastSummaryRaw = null;
+      lastVideoMeta = null;
+      hasRenderedExpanded = false;
+      updateWidget();
+    });
+    controls.appendChild(closeBtn);
+
+    // Back button — always shown; returns to summary if one exists, otherwise closes
+    const backBtn = document.createElement("button");
+    backBtn.className = "tldw-dot tldw-dot-minimize";
+    backBtn.title = lastSummaryRaw ? "Back" : "Close";
+    backBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (lastSummaryRaw && (settingsPreviousState === "summary" || settingsPreviousState === "error")) {
+        widgetState = settingsPreviousState;
+      } else {
+        widgetState = "idle";
+        hasRenderedExpanded = false;
+      }
+      updateWidget();
+    });
+    controls.appendChild(backBtn);
+
+    const title = document.createElement("span");
+    title.className = "tldw-widget-title";
+    title.appendChild(createLogoHorizontal("tldw-logo-h--header"));
+
+    const actions = document.createElement("div");
+    actions.className = "tldw-header-actions";
+
+    header.appendChild(controls);
+    header.appendChild(title);
+    header.appendChild(actions);
+
+    const body = document.createElement("div");
+    body.className = "tldw-widget-body tldw-settings";
+
+    function el(tag, cls, txt) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (txt) e.textContent = txt;
+      return e;
+    }
+
+    // --- About ---
+    body.appendChild(el("h4", "tldw-settings-section-title", "About"));
+    var aboutP = el("p", "tldw-settings-about");
+    aboutP.textContent = "tLDw \u2014 Too Lazy, Didn\u2019t Watch. Reads the video transcript and uses your free Gemini API key to summarize it. ~10s on a video page, ~20s from feed/sidebar. Rate limited? Wait a minute and retry.";
+    body.appendChild(aboutP);
+
+    // --- API Keys ---
+    body.appendChild(el("h4", "tldw-settings-section-title", "API Keys"));
+    var keyHint = el("p", "tldw-settings-label");
+    keyHint.textContent = "Free key at ";
+    var aiLink = document.createElement("a");
+    aiLink.href = "https://aistudio.google.com/apikey";
+    aiLink.target = "_blank";
+    aiLink.rel = "noopener";
+    aiLink.textContent = "Google AI Studio";
+    aiLink.style.color = "#64b4ff";
+    keyHint.appendChild(aiLink);
+    body.appendChild(keyHint);
+
+    var keyPlaceholders = ["Primary key", "Fallback key 2", "Fallback key 3"];
+    var keyInputs = [];
+    keyPlaceholders.forEach(function (ph) {
+      var inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "tldw-settings-input";
+      inp.placeholder = ph;
+      inp.autocomplete = "off";
+      inp.spellcheck = false;
+      body.appendChild(inp);
+      keyInputs.push(inp);
+    });
+
+    browser.storage.local.get(["geminiApiKey", "geminiApiKeys"]).then(function (result) {
+      if (result.geminiApiKeys && Array.isArray(result.geminiApiKeys)) {
+        result.geminiApiKeys.forEach(function (k, i) {
+          if (keyInputs[i] && k) keyInputs[i].value = k;
+        });
+      } else if (result.geminiApiKey && keyInputs[0]) {
+        keyInputs[0].value = result.geminiApiKey;
+      }
+    });
+
+    var keysStatus = el("p", "tldw-settings-status");
+    var saveKeysBtn = el("button", "tldw-settings-btn", "Save Keys");
+    saveKeysBtn.addEventListener("click", function () {
+      var keys = keyInputs.map(function (i) { return i.value.trim(); }).filter(function (k) { return k.length >= 10; });
+      if (keys.length === 0) {
+        keysStatus.textContent = "Enter at least one valid key.";
+        keysStatus.style.color = "#f44";
+        return;
+      }
+      browser.storage.local.set({ geminiApiKey: keys[0], geminiApiKeys: keys }).then(function () {
+        keysStatus.textContent = "Saved!";
+        keysStatus.style.color = "#4caf50";
+      });
+    });
+    body.appendChild(saveKeysBtn);
+    body.appendChild(keysStatus);
+
+    // --- Custom Prompt ---
+    body.appendChild(el("h4", "tldw-settings-section-title", "Custom Prompt"));
+    body.appendChild(el("p", "tldw-settings-label", "Use {title} and {transcript} as placeholders."));
+
+    var promptTextarea = document.createElement("textarea");
+    promptTextarea.className = "tldw-settings-textarea";
+    promptTextarea.spellcheck = false;
+    body.appendChild(promptTextarea);
+
+    var SETTINGS_DEFAULT_PROMPT = 'Summarize this YouTube video transcript. Your response MUST follow this exact format:\n{title}\n**TLDW:** [Answer the video title\'s question or explain the main point of the video in 1-5 sentences. Cut straight to the chase \u2014 what is the actual answer, conclusion, or takeaway? If the title asks a question, answer it directly. If the title is vague or clickbait, state what the video is actually about. Be blunt and concise.]\n\n**Key Points:**\n[Then provide a bullet-point summary of the valuable insights and key points. For each major point, include the approximate timestamp from the transcript as a source reference (e.g. [2:15]). Reduce filler content.]\n\nTranscript:\n{transcript}';
+
+    browser.storage.local.get("customPrompt").then(function (res) {
+      promptTextarea.value = res.customPrompt || SETTINGS_DEFAULT_PROMPT;
+    });
+
+    var promptStatus = el("p", "tldw-settings-status");
+    var promptBtnRow = el("div", "tldw-settings-btn-row");
+    var savePromptBtn = el("button", "tldw-settings-btn", "Save Prompt");
+    var resetPromptBtn = el("button", "tldw-settings-btn tldw-settings-btn--secondary", "Reset");
+    savePromptBtn.addEventListener("click", function () {
+      var val = promptTextarea.value.trim();
+      if (!val) { promptStatus.textContent = "Cannot be empty."; promptStatus.style.color = "#f44"; return; }
+      browser.storage.local.set({ customPrompt: val }).then(function () {
+        promptStatus.textContent = "Saved.";
+        promptStatus.style.color = "#4caf50";
+      });
+    });
+    resetPromptBtn.addEventListener("click", function () {
+      promptTextarea.value = SETTINGS_DEFAULT_PROMPT;
+      browser.storage.local.remove("customPrompt").then(function () {
+        promptStatus.textContent = "Reset to default.";
+        promptStatus.style.color = "#4caf50";
+      });
+    });
+    promptBtnRow.appendChild(savePromptBtn);
+    promptBtnRow.appendChild(resetPromptBtn);
+    body.appendChild(promptBtnRow);
+    body.appendChild(promptStatus);
+
+    // --- Preferences ---
+    body.appendChild(el("h4", "tldw-settings-section-title", "Preferences"));
+
+    var themeRow = el("div", "tldw-settings-pref-row");
+    themeRow.appendChild(el("span", "tldw-settings-pref-label", "Theme"));
+    var themeCycleBtn = el("button", "tldw-settings-btn tldw-settings-btn--secondary", currentTheme);
+    themeCycleBtn.addEventListener("click", function () {
+      var idx = THEMES.indexOf(currentTheme);
+      currentTheme = THEMES[(idx + 1) % THEMES.length];
+      themeCycleBtn.textContent = currentTheme;
+      applyTheme();
+      browser.storage.local.set({ tldwTheme: currentTheme });
+    });
+    themeRow.appendChild(themeCycleBtn);
+    body.appendChild(themeRow);
+
+    var counterRow = el("div", "tldw-settings-pref-row");
+    counterRow.appendChild(el("span", "tldw-settings-pref-label", "Summary counter"));
+    var counterToggle = el("button", "tldw-settings-btn tldw-settings-btn--secondary", hideCounter ? "Hidden" : "Visible");
+    counterToggle.addEventListener("click", function () {
+      hideCounter = !hideCounter;
+      counterToggle.textContent = hideCounter ? "Hidden" : "Visible";
+      browser.storage.local.set({ tldwHideCounter: hideCounter });
+      updateCounterBadge();
+    });
+    counterRow.appendChild(counterToggle);
+    body.appendChild(counterRow);
+
+    // --- Position picker ---
+    var posLabelRow = el("div", "tldw-settings-pref-row");
+    posLabelRow.appendChild(el("span", "tldw-settings-pref-label", "Widget position"));
+    body.appendChild(posLabelRow);
+
+    var posGrid = el("div", "tldw-settings-pos-grid");
+    var posDefs = [
+      ["top-left", "\u2196"], ["top-center", "\u2191"], ["top-right", "\u2197"],
+      ["bottom-left", "\u2199"], ["bottom-center", "\u2193"], ["bottom-right", "\u2198"]
+    ];
+    posDefs.forEach(function (def) {
+      var posId = def[0];
+      var symbol = def[1];
+      var btn = document.createElement("button");
+      btn.className = "tldw-settings-pos-btn" + (currentPosition === posId ? " tldw-settings-pos-btn--active" : "");
+      btn.textContent = symbol;
+      btn.title = posId.replace("-", " ");
+      btn.addEventListener("click", function () {
+        currentPosition = posId;
+        browser.storage.local.set({ tldwPosition: posId });
+        applyPosition(document.getElementById(WIDGET_ID));
+        posGrid.querySelectorAll(".tldw-settings-pos-btn").forEach(function (b) {
+          b.classList.remove("tldw-settings-pos-btn--active");
+        });
+        btn.classList.add("tldw-settings-pos-btn--active");
+      });
+      posGrid.appendChild(btn);
+    });
+    body.appendChild(posGrid);
+
+    // --- Opacity slider ---
+    var opacityLabelRow = el("div", "tldw-settings-pref-row");
+    opacityLabelRow.appendChild(el("span", "tldw-settings-pref-label", "Translucency & Blur"));
+    var opacityValueLabel = el("span", "tldw-settings-pref-label", Math.round(currentOpacity * 100) + "%");
+    opacityValueLabel.style.marginLeft = "auto";
+    opacityLabelRow.appendChild(opacityValueLabel);
+    body.appendChild(opacityLabelRow);
+
+    var opacitySlider = document.createElement("input");
+    opacitySlider.type = "range";
+    opacitySlider.min = "0.2";
+    opacitySlider.max = "1";
+    opacitySlider.step = "0.05";
+    opacitySlider.value = currentOpacity;
+    opacitySlider.className = "tldw-settings-slider";
+    opacitySlider.addEventListener("input", function () {
+      currentOpacity = parseFloat(opacitySlider.value);
+      opacityValueLabel.textContent = Math.round(currentOpacity * 100) + "%";
+      applyOpacity(document.getElementById(WIDGET_ID));
+    });
+    opacitySlider.addEventListener("change", function () {
+      browser.storage.local.set({ tldwOpacity: currentOpacity });
+    });
+    body.appendChild(opacitySlider);
 
     widget.appendChild(header);
     widget.appendChild(body);
