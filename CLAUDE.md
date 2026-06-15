@@ -4,7 +4,7 @@
 
 A Firefox browser extension that provides one-click YouTube video summarization. Users bring their own free Google Gemini API key (BYOK). No data collection, no tracking, fully private.
 
-**Status:** Live on Firefox Add-ons Store (AMO) — v1.1.0
+**Status:** Live on Firefox Add-ons Store (AMO) — v1.1.1
 **Author:** pacochino
 **License:** GPL v3.0
 **Store URL:** https://addons.mozilla.org/firefox/addon/tldw/
@@ -57,7 +57,16 @@ Four fallback methods in order:
 **Transcript limit:** 300,000 chars (~2-3 hours of video)
 **API timeout:** Scales dynamically — `Math.min(60000, Math.max(15000, Math.round(prompt.length / 10)))`
 
-**YouTube DOM (March 2026 update):** Transcript segments now use `transcript-segment-view-model` custom elements. Text is in `span.yt-core-attributed-string--link-inherit-color`, timestamps in `div.ytwTranscriptSegmentViewModelTimestamp`. Old `ytd-transcript-segment-renderer` selectors kept as fallback.
+**YouTube DOM (2026):** Transcript segments use `transcript-segment-view-model` custom elements; timestamps in `.ytwTranscriptSegmentViewModelTimestamp`. The text element's class churns (it is NOT reliably `span.yt-core-attributed-string--link-inherit-color` — that `--link-inherit-color` modifier is link-styled text and often absent on plain transcript lines). `scrapeTranscriptFromDOM` (content.js) is therefore **structure-agnostic**: its `extractSegment()` helper finds the timestamp via a class-contains selector, tries a list of known text selectors, and falls back to *full segment textContent minus the timestamp* so it works regardless of the inner text class. Three tiers attempted in order: `transcript-segment-view-model` → legacy `ytd-transcript-segment-renderer` → generic `[class*='TranscriptSegment']` rows.
+
+**PO-token gating (2025–2026) — why DOM scrape is now primary:** YouTube enforces a proof-of-origin (PO) token on the caption/`timedtext` endpoint, especially for the `WEB` innertube client. Without it the caption `baseUrl` (carries `exp=xpe`) returns **HTTP 200 with an empty body** — no error, just no text. This degrades methods 1–3 (innertube/timedtext/HTML-parse) intermittently. The in-page **DOM scrape** runs inside YouTube's own authenticated page, which already holds a valid PO token, so it is the most reliable path. On a watch page, `handleSummarize` races DOM scrape + API and the scrape usually wins; from the homepage feed/sidebar the API is tried first, then the **background-tab DOM scrape** fallback.
+
+**Helper-tab transcript fetch — push model (background.js `getTranscriptViaBackgroundTab` + content.js `runHelperTabFetch`):** Used for the homepage feed/sidebar path where the clicked video isn't the current page. The scrape MUST run on a **focused, fully-rendered** tab — background tabs throttle JS timers (≥1s) and YouTube skips rendering the transcript panel when hidden, so any "scrape a hidden tab" approach is unreliable. Flow:
+1. `background.js` opens `watch?v=ID#tldwfetch` with `active: true` (focused), and registers a one-shot `onMessage` listener for `TAB_TRANSCRIPT_RESULT`.
+2. `content.js init()` detects the `#tldwfetch` hash, skips the normal widget, calls `runHelperTabFetch()`: shows a fixed banner ("Grabbing this video's transcript — sending you back…"), runs `getTranscriptFromPage`, then **pushes** `{ type:"TAB_TRANSCRIPT_RESULT", videoId, result, meta }` back.
+3. `background.js` races that push against a **25s** hard timeout (`TAB_FETCH_TIMEOUT`). The moment the result arrives (typically ~2-5s) it switches focus back to the user's original tab and closes the helper — so the helper only lingers as long as the scrape actually takes, and **always** auto-returns (even on failure/timeout).
+
+This replaced the earlier pull model (`SCRAPE_TRANSCRIPT` + `tryScrape` race), which scraped a backgrounded tab and lingered on per-attempt timeouts. **Tradeoff:** the user's active tab briefly switches to the helper tab during the scrape before being restored — the banner explains this.
 
 ### Gemini Model Cascade (background.js)
 Tries models in order, falls back on failure:
@@ -132,14 +141,36 @@ Back button (yellow dot): returns to summary if one exists, otherwise closes the
 
 ## Packaging for AMO
 
-Zip the contents (not the folder):
+Zip the contents (not the folder), with the manifest at the archive root.
+
+> ⚠️ **Do NOT use `Compress-Archive`.** Windows PowerShell 5.1 writes `\` path
+> separators inside the zip, and AMO rejects them with
+> *"Invalid file name in archive: icons\icon-48.png"*. Use the .NET `ZipArchive`
+> API and force forward slashes:
 
 ```powershell
-# Run from inside the TLDW folder
-Compress-Archive -Path .\* -DestinationPath ..\tldw.zip -Force
+# Run from anywhere — paths are absolute
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$root = "C:\Users\chino\MCP\260105PLAYGROUND\TLDW"
+$zip  = "C:\Users\chino\MCP\260105PLAYGROUND\tldw-1.1.1.zip"
+if (Test-Path $zip) { Remove-Item $zip -Force }
+$files = @(
+  "manifest.json","background.js","content.js","styles.css",
+  "README.md","LICENSE","GPL3.0 License.txt",
+  "icons\icon-48.png","icons\icon-96.png",
+  "settings\settings.html","settings\settings.js"
+)
+$archive = [System.IO.Compression.ZipFile]::Open($zip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+  foreach ($f in $files) {
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+      $archive, (Join-Path $root $f), ($f -replace '\\','/')) | Out-Null
+  }
+} finally { $archive.Dispose() }
 ```
 
-**Exclude before zipping:** `.claude/` directory, any `nul` files, `CLAUDE.md`
+This explicit allowlist also handles exclusions — dev-only files (`.claude/`, `.git/`, `CLAUDE.md`, any `nul`) are simply never added. Bump `$zip` and `manifest.json` `version` per release.
 
 **AMO submission answers:**
 - Source code required? **No** (no minifier, no bundler, no build process)
@@ -167,6 +198,14 @@ Compress-Archive -Path .\* -DestinationPath ..\tldw.zip -Force
 - **Fullscreen auto-reposition:** Widget moves to `bottom: 5px; right: 22%` on fullscreen enter; restores on exit
 - **Fullscreen dismiss button:** × badge on compact pill during fullscreen; widget restores automatically on exit
 - **Home feed button:** Compact pill style (was full-width block); consistent with sidebar buttons
+
+### v1.1.1 — Transcript Reliability Fix (Jun 2026)
+- **Helper-tab fetch rewritten to a push model (root cause of homepage-feed failures):** the old flow scraped a *backgrounded* tab — YouTube throttles JS and skips rendering the transcript panel when a tab is hidden, so it frequently failed and needed a manual second tab-click. New flow opens the helper tab **focused**, the content script scrapes the fully-rendered page and **pushes** the result back, then background.js auto-returns the user to their original tab the instant it arrives (or after a 25s cap). See "Helper-tab transcript fetch" above.
+- **User-facing banner** on the helper tab (styled to match the widget: dark rounded card, Sixtyfour `tLDw` logo, blinking-dot loading animation) explaining it's temporary and will return them.
+- **Structure-agnostic transcript scraper:** `scrapeTranscriptFromDOM` no longer depends on the exact text-span class (which YouTube renames); it subtracts the timestamp from each segment's textContent. Fixes "Transcript panel opened but no text found" when the panel was clearly rendered.
+- **Guaranteed auto-return** — original tab is always restored and helper closed, even on failure/timeout (no more lingering).
+- **Bumped stale innertube clientVersion** `2.20250101.00.00` → `2.20260101.00.00`.
+- **Context:** YouTube's PO-token gating on the caption endpoint (see Transcript Fetching above) is the underlying reason the API methods degraded; the fix leans on the DOM scrape (PO-token-immune, runs in YouTube's own authenticated page). No client swap (WEB→ANDROID) — the PO gate is on the caption `baseUrl` fetch, not the client list call, so a swap wouldn't bypass it.
 
 ## If Returning to This Project
 

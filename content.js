@@ -100,6 +100,15 @@
   function init() {
     injectFont();
 
+    // Helper-tab fetch mode: this tab was opened by tLDw (background.js) purely
+    // to grab a transcript. Show a banner, scrape, push the result back, and let
+    // background.js return the user to their original tab. Skip the normal widget
+    // UI entirely — this tab is temporary and about to close.
+    if (location.hash.indexOf("tldwfetch") !== -1 && isWatchPage()) {
+      runHelperTabFetch();
+      return;
+    }
+
     const observer = new MutationObserver((mutations) => {
       // Early exit: only react to mutations that could contain video renderers
       let dominated = false;
@@ -214,6 +223,62 @@
     } catch (e) {
       return { ok: false, error: "Scrape failed: " + e.message };
     }
+  }
+
+  // --- Helper-Tab Fetch Mode ---
+  // Runs only in the temporary tab background.js opens (URL has #tldwfetch).
+  // Scrapes the transcript on this fully-rendered, focused page and pushes the
+  // result back so background.js can return the user to their original tab.
+
+  function injectFetchBanner() {
+    if (document.getElementById("tldw-fetch-banner")) return;
+    const bar = document.createElement("div");
+    bar.id = "tldw-fetch-banner";
+    bar.className = "tldw-fetch-banner";
+
+    const logo = document.createElement("span");
+    logo.className = "tldw-fetch-banner__logo";
+    logo.textContent = "tLDw";
+
+    const msg = document.createElement("span");
+    msg.className = "tldw-fetch-banner__msg";
+    msg.textContent = "Grabbing this video's transcript — sending you back in a moment";
+
+    const dots = document.createElement("span");
+    dots.className = "tldw-fetch-banner__dots";
+    for (let i = 0; i < 3; i++) {
+      const d = document.createElement("span");
+      d.className = "tldw-fetch-banner__dot";
+      dots.appendChild(d);
+    }
+
+    bar.appendChild(logo);
+    bar.appendChild(msg);
+    bar.appendChild(dots);
+    (document.body || document.documentElement).appendChild(bar);
+  }
+
+  async function runHelperTabFetch() {
+    injectFetchBanner();
+    const videoId = new URLSearchParams(location.search).get("v");
+    let result;
+    try {
+      // Brief settle so YouTube's SPA renders the description/transcript section,
+      // then let getTranscriptFromPage do its own adaptive polling.
+      await sleep(600);
+      result = await getTranscriptFromPage(videoId);
+    } catch (e) {
+      result = { ok: false, error: "Scrape failed: " + (e && e.message) };
+    }
+    const meta = scrapeVideoMeta();
+    try {
+      await browser.runtime.sendMessage({
+        type: "TAB_TRANSCRIPT_RESULT",
+        videoId: videoId,
+        result: result,
+        meta: meta
+      });
+    } catch (e) { /* background may have already closed this tab */ }
   }
 
   // --- Video Metadata Scraping ---
@@ -412,48 +477,78 @@
     const textParts = [];
     const seen = new Set();
 
+    // Pull "timestamp" + "text" out of one segment element without depending on
+    // exact inner class names (YouTube renames these often). Strategy: find the
+    // timestamp via a class-contains selector, then take the segment's remaining
+    // text as the line (full textContent minus the timestamp). Falls back to a
+    // few known text selectors when present for cleaner output.
+    function extractSegment(seg, timeSelectors, textSelectors) {
+      let timeEl = null;
+      for (let i = 0; i < timeSelectors.length && !timeEl; i++) {
+        timeEl = seg.querySelector(timeSelectors[i]);
+      }
+      const timestamp = timeEl ? timeEl.textContent.trim() : "";
+
+      let text = "";
+      for (let i = 0; i < textSelectors.length && !text; i++) {
+        const el = seg.querySelector(textSelectors[i]);
+        if (el) text = el.textContent.replace(/\s+/g, " ").trim();
+      }
+      // Fallback: whole segment text minus the timestamp prefix
+      if (!text) {
+        const full = seg.textContent.replace(/\s+/g, " ").trim();
+        text = (timestamp && full.indexOf(timestamp) === 0)
+          ? full.slice(timestamp.length).trim()
+          : (timestamp ? full.split(timestamp).join(" ").trim() : full);
+      }
+      if (text && !seen.has(text)) {
+        seen.add(text);
+        textParts.push(timestamp ? "[" + timestamp + "] " + text : text);
+      }
+    }
+
     // Current structure (YouTube 2026): transcript-segment-view-model custom elements
     const newSegments = document.querySelectorAll("transcript-segment-view-model");
     if (newSegments.length > 0) {
-      newSegments.forEach((seg) => {
-        const textEl = seg.querySelector("span.yt-core-attributed-string--link-inherit-color");
-        const timeEl = seg.querySelector(".ytwTranscriptSegmentViewModelTimestamp");
-        if (textEl) {
-          const text = textEl.textContent.trim();
-          const timestamp = timeEl ? timeEl.textContent.trim() : "";
-          if (text.length > 0 && !seen.has(text)) {
-            seen.add(text);
-            textParts.push(timestamp ? "[" + timestamp + "] " + text : text);
-          }
-        }
-      });
+      newSegments.forEach((seg) => extractSegment(
+        seg,
+        [".ytwTranscriptSegmentViewModelTimestamp", "[class*='Timestamp']"],
+        [
+          ".ytwTranscriptSegmentViewModelSegmentText",
+          "[class*='SegmentText']",
+          "span.yt-core-attributed-string:not([class*='link'])",
+          "span.yt-core-attributed-string"
+        ]
+      ));
       if (textParts.length > 0) return textParts.join("\n");
     }
 
     // Legacy structure (pre-2026): ytd-transcript-segment-renderer
     const segments = document.querySelectorAll("ytd-transcript-segment-renderer");
-    if (segments.length === 0) return null;
+    if (segments.length > 0) {
+      segments.forEach((seg) => extractSegment(
+        seg,
+        [".segment-timestamp", "yt-formatted-string.segment-timestamp"],
+        [".segment-text", "yt-formatted-string:not(.segment-timestamp)"]
+      ));
+      if (textParts.length > 0) return textParts.join("\n");
+    }
 
-    segments.forEach((seg) => {
-      const textEl =
-        seg.querySelector(".segment-text") ||
-        seg.querySelector("yt-formatted-string:not(.segment-timestamp)");
-      const timeEl =
-        seg.querySelector(".segment-timestamp") ||
-        seg.querySelector("yt-formatted-string.segment-timestamp");
+    // Generic fallback: scan the transcript panel for segment-like rows by class
+    // pattern, in case YouTube swapped the custom element tag again.
+    const genericRows = document.querySelectorAll(
+      "[class*='TranscriptSegment'], [class*='transcript-segment']"
+    );
+    if (genericRows.length > 0) {
+      genericRows.forEach((seg) => extractSegment(
+        seg,
+        ["[class*='Timestamp']", "[class*='timestamp']"],
+        ["[class*='SegmentText']", "[class*='segment-text']"]
+      ));
+      if (textParts.length > 0) return textParts.join("\n");
+    }
 
-      if (textEl) {
-        const text = textEl.textContent.trim();
-        const timestamp = timeEl ? timeEl.textContent.trim() : "";
-        if (text.length > 0 && !seen.has(text)) {
-          seen.add(text);
-          textParts.push(timestamp ? "[" + timestamp + "] " + text : text);
-        }
-      }
-    });
-
-    if (textParts.length === 0) return null;
-    return textParts.join("\n");
+    return null;
   }
 
   function sleep(ms) {

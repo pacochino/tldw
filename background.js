@@ -97,121 +97,74 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// --- Transcript Extraction via Background Tab ---
-// Opens the video in a tab, lets the content script scrape the transcript,
-// then closes the tab. Used when TLDW is clicked from the homepage feed.
+// --- Transcript Extraction via Helper Tab (push model) ---
+// Opens the video in a focused tab so YouTube actually renders the transcript
+// (background tabs throttle JS and skip rendering). The helper tab's content
+// script detects the #tldwfetch marker, shows a banner, scrapes the transcript,
+// and PUSHES it back via a TAB_TRANSCRIPT_RESULT message. As soon as that
+// arrives we return the user to their original tab and close the helper — so it
+// only lingers as long as the scrape actually takes (~2-5s), never longer than
+// the hard timeout. Used when TLDW is clicked from the homepage feed/sidebar.
+
+const TAB_FETCH_TIMEOUT = 25000;
 
 async function getTranscriptViaBackgroundTab(videoId) {
   let tab = null;
   let originalTabId = null;
-
-  // Helper: try scraping transcript from the tab
-  async function tryScrape() {
-    const result = await Promise.race([
-      browser.tabs.sendMessage(tab.id, { type: "SCRAPE_TRANSCRIPT", videoId }),
-      new Promise((_, reject) => setTimeout(() => reject("timeout"), 1000))
-    ]);
-    if (result && result.ok) return result;
-    throw new Error("no transcript");
-  }
+  let resultListener = null;
 
   try {
     // Remember the currently active tab so we can switch back
     const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (activeTab) {
-      originalTabId = activeTab.id;
-    }
+    if (activeTab) originalTabId = activeTab.id;
 
-    // Create the tab as inactive initially
-    tab = await browser.tabs.create({
-      url: `https://www.youtube.com/watch?v=${videoId}`,
-      active: false
+    // Wait for the helper tab's content script to push its scrape result.
+    const resultPromise = new Promise((resolve) => {
+      resultListener = (message) => {
+        if (message && message.type === "TAB_TRANSCRIPT_RESULT" && message.videoId === videoId) {
+          resolve({ result: message.result, meta: message.meta });
+        }
+      };
+      browser.runtime.onMessage.addListener(resultListener);
     });
 
-    // Wait for the tab to finish loading (15s timeout — fail fast)
-    await waitForTabLoad(tab.id);
+    // Open the tab FOCUSED (#tldwfetch tells the content script to auto-scrape).
+    tab = await browser.tabs.create({
+      url: `https://www.youtube.com/watch?v=${videoId}#tldwfetch`,
+      active: true
+    });
 
-    let meta = null;
+    // Race the pushed result against a hard timeout so we never get stuck.
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve(null), TAB_FETCH_TIMEOUT));
+    const outcome = await Promise.race([resultPromise, timeoutPromise]);
 
-    // --- First activation: trigger YouTube's visibility/focus handlers ---
-    await browser.tabs.update(tab.id, { active: true });
-    await new Promise(r => setTimeout(r, 500));
-
-    // Switch back to original tab
+    // Always return the user to their tab and close the helper, no matter what.
     if (originalTabId) {
       try { await browser.tabs.update(originalTabId, { active: true }); } catch {}
     }
+    try { await browser.tabs.remove(tab.id); } catch {}
+    if (resultListener) browser.runtime.onMessage.removeListener(resultListener);
 
-    // Try scraping after first activation
-    try {
-      const result = await tryScrape();
-      try { meta = await browser.tabs.sendMessage(tab.id, { type: "SCRAPE_META" }); } catch {}
-      await browser.tabs.remove(tab.id);
-      return { ...result, meta };
-    } catch {}
-
-    // --- Second activation: YouTube needs a second focus to fully render transcript ---
-    await browser.tabs.update(tab.id, { active: true });
-    await new Promise(r => setTimeout(r, 250));
-
-    // Switch back again
-    if (originalTabId) {
-      try { await browser.tabs.update(originalTabId, { active: true }); } catch {}
+    if (outcome && outcome.result && outcome.result.ok) {
+      return { ok: true, transcript: outcome.result.transcript, meta: outcome.meta };
     }
-
-    // Try scraping after second activation
-    try {
-      const result = await tryScrape();
-      try { meta = await browser.tabs.sendMessage(tab.id, { type: "SCRAPE_META" }); } catch {}
-      await browser.tabs.remove(tab.id);
-      return { ...result, meta };
-    } catch {}
-
-    // --- Final retries (tab stays in background now) ---
-    const delays = [1000, 2000, 3000];
-    for (const delay of delays) {
-      await new Promise(r => setTimeout(r, delay));
-      try {
-        if (!meta) {
-          try { meta = await browser.tabs.sendMessage(tab.id, { type: "SCRAPE_META" }); } catch {}
-        }
-        const result = await tryScrape();
-        await browser.tabs.remove(tab.id);
-        return { ...result, meta };
-      } catch {}
-    }
-
-    // Close the tab
-    await browser.tabs.remove(tab.id);
-    return { ok: false, error: "Could not extract transcript from background tab." };
+    const reason = (outcome && outcome.result && outcome.result.error)
+      ? outcome.result.error
+      : "Timed out fetching transcript from helper tab.";
+    return { ok: false, error: reason };
   } catch (err) {
-    // Clean up
+    if (resultListener) {
+      try { browser.runtime.onMessage.removeListener(resultListener); } catch {}
+    }
     if (tab) {
       try { await browser.tabs.remove(tab.id); } catch {}
     }
     if (originalTabId) {
       try { await browser.tabs.update(originalTabId, { active: true }); } catch {}
     }
-    return { ok: false, error: "Background tab transcript extraction failed: " + err.message };
+    return { ok: false, error: "Helper tab transcript extraction failed: " + err.message };
   }
-}
-
-function waitForTabLoad(tabId) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      browser.tabs.onUpdated.removeListener(listener);
-      reject(new Error("Tab load timed out"));
-    }, 15000);
-
-    function listener(id, changeInfo) {
-      if (id === tabId && changeInfo.status === "complete") {
-        clearTimeout(timeout);
-        browser.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    }
-    browser.tabs.onUpdated.addListener(listener);
-  });
 }
 
 // --- Transcript Extraction (API methods — raced in parallel) ---
@@ -246,7 +199,7 @@ async function fetchTranscriptViaInnertube(videoId) {
         context: {
           client: {
             clientName: "WEB",
-            clientVersion: "2.20250101.00.00",
+            clientVersion: "2.20260101.00.00",
             hl: "en"
           }
         }
