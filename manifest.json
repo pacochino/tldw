@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "tLDw – Too Lazy, Didn't Watch",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "One-click YouTube video summaries powered by your own free Gemini API key. Get the TLDW on any video — no tracking, no data collection, fully private.",
   "author": "pacochino",
   "homepage_url": "https://github.com/pacochino/tldw",

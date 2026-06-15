@@ -4,7 +4,7 @@
 
 A Firefox browser extension that provides one-click YouTube video summarization. Users bring their own free Google Gemini API key (BYOK). No data collection, no tracking, fully private.
 
-**Status:** Live on Firefox Add-ons Store (AMO) — v1.1.1
+**Status:** Live on Firefox Add-ons Store (AMO) — v1.1.2
 **Author:** pacochino
 **License:** GPL v3.0
 **Store URL:** https://addons.mozilla.org/firefox/addon/tldw/
@@ -153,7 +153,7 @@ Zip the contents (not the folder), with the manifest at the archive root.
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = "C:\Users\chino\MCP\260105PLAYGROUND\TLDW"
-$zip  = "C:\Users\chino\MCP\260105PLAYGROUND\tldw-1.1.1.zip"
+$zip  = "C:\Users\chino\MCP\260105PLAYGROUND\tldw-1.1.2.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 $files = @(
   "manifest.json","background.js","content.js","styles.css",
@@ -199,7 +199,9 @@ This explicit allowlist also handles exclusions — dev-only files (`.claude/`, 
 - **Fullscreen dismiss button:** × badge on compact pill during fullscreen; widget restores automatically on exit
 - **Home feed button:** Compact pill style (was full-width block); consistent with sidebar buttons
 
-### v1.1.1 — Transcript Reliability Fix (Jun 2026)
+### v1.1.2 — Transcript Reliability Fix (Jun 2026)
+> (Originally cut as v1.1.1; renumbered to 1.1.2 because AMO permanently retires a version number once uploaded, even if the upload is deleted.)
+
 - **Helper-tab fetch rewritten to a push model (root cause of homepage-feed failures):** the old flow scraped a *backgrounded* tab — YouTube throttles JS and skips rendering the transcript panel when a tab is hidden, so it frequently failed and needed a manual second tab-click. New flow opens the helper tab **focused**, the content script scrapes the fully-rendered page and **pushes** the result back, then background.js auto-returns the user to their original tab the instant it arrives (or after a 25s cap). See "Helper-tab transcript fetch" above.
 - **User-facing banner** on the helper tab (styled to match the widget: dark rounded card, Sixtyfour `tLDw` logo, blinking-dot loading animation) explaining it's temporary and will return them.
 - **Structure-agnostic transcript scraper:** `scrapeTranscriptFromDOM` no longer depends on the exact text-span class (which YouTube renames); it subtracts the timestamp from each segment's textContent. Fixes "Transcript panel opened but no text found" when the panel was clearly rendered.
